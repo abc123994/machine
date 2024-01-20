@@ -71,7 +71,7 @@ func (c *Client) square(string) int32 {
 		Data: "hello square",
 	}
 	out, _ := json.Marshal(data)
-	c.Send_client("square", out)
+	c.Send("square", out)
 	return 0
 }
 func (c *Client) double(string) int32 {
@@ -80,10 +80,10 @@ func (c *Client) double(string) int32 {
 		Data: "hello double",
 	}
 	out, _ := json.Marshal(data)
-	c.Send_client("double", out)
+	c.Send("double", out)
 	return 0
 }
-func (c *Client) Send_client(_type string, data []byte) {
+func (c *Client) Send(_type string, data []byte) {
 	common := Common{
 		Type: _type,
 		Data: data,
