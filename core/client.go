@@ -32,9 +32,13 @@ func HandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &Client{Conn: c}
-
+	log.Println(string(proto.MessageName(&pb_machine.Login{})))
 	functionMap := map[string]Handler{
 		string(proto.MessageName(&pb_machine.Login{})): client.onlogin,
+		"": func([]byte) int32 {
+			log.Println("empty")
+			return 0
+		},
 	}
 
 	defer c.Close()
@@ -54,7 +58,9 @@ func HandleFunc(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Println("COMMON PARSE ERROR")
 				break
+
 			} else {
+				log.Println("IN", _c.Type, _c.Data)
 				go functionMap[_c.Type](_c.Data)
 			}
 		}
