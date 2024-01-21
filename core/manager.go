@@ -20,7 +20,7 @@ func init() {
 
 		for range ticker.C {
 			for _, e := range m_ws_client {
-				data := pb_machine.Test{}
+				data := pb_machine.Test{CurrentTime: time.Now().Format("2006-01-02 15:04:05")}
 				out, _ := proto.Marshal(&data)
 				e.Send(string(proto.MessageName(&data)), out)
 			}
