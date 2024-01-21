@@ -1,17 +1,18 @@
 package main
 
 import (
-	"flag"
 	"log"
+	"machine_svc/config"
 	"machine_svc/core"
+	"machine_svc/utils"
 	"net/http"
 )
 
-var addr = flag.String("host", "0.0.0.0:8081", "http service address")
-
 func main() {
-	flag.Parse()
-	log.SetFlags(0)
+	config.InitConfig()
+
 	http.HandleFunc("/ws", core.HandleFunc)
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	utils.SQLExample()
+	utils.RedisExample()
+	log.Fatal(http.ListenAndServe(config.Ws_host, nil))
 }
