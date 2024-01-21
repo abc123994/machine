@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>jQuery with Protocol Buffers Example</title>
+  <!-- Include jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+  <!-- Include protobuf.js -->
+  <script src="https://cdn.jsdelivr.net/npm/protobufjs@6.11.2/dist/protobuf.js"></script>
+
+</head>
+<body>
+    <h3 id="myH3">Initial Text</h3>
+<script>
+  $(document).ready(function() {
+  console.log("init socket");
+  var guid=generateGUID();
+ 
+   const socket = new WebSocket('ws://localhost:8081/ws');
+
+    // Connection opened
+    socket.addEventListener('open', function (event) {
+		console.log("WebSocket connection opened.");
+	      // Load the Protocol Buffers definition
+		protobuf.load("schema/machine/machine.proto", function(err, root) {
+		  if (err) throw err;
+		  const Person = root.lookupType("machine.Login");
+		  const personData = { guid:guid};
+		  const message = Person.create(personData);
+		  const buffer = Person.encode(message).finish();
+		  console.log(message)
+		  console.log(buffer)
+			  protobuf.load("schema/common/common.proto", function(err, root) {
+			  if (err) throw err;
+				  const Common = root.lookupType("common.Common");
+                  const fullName = message.$type ? message.$type.fullName : undefined;
+
+				  const typeName = fullName ? convertToGolangFormat(fullName) : undefined;
+				  console.log(typeName);
+
+				  const common = { type:typeName ,data:buffer};
+				  const common_msg = Common.create(common);
+				  const output = Common.encode(common_msg).finish();
+				  console.log(common_msg)
+				  console.log(output)
+				  socket.send(output)
+			  });
+		
+
+		});
+
+      // You can send data or perform other actions here after the connection is open
+    });
+
+    // Listen for messages
+    socket.addEventListener('message', function (event) {
+  // Use the 'protobuf.js' library to decode Protocol Buffers data
+        protobuf.load("schema/common/common.proto", function(err, root) {
+
+            if (err) throw err;
+              // Check the type of event.data
+          
+
+            let Common = root.lookupType("common.Common");
+            // var rawData = event.data; // Assuming the data received is a binary protobuf message
+            // var buffer = new Uint8Array(rawData);
+            // console.log(buffer)
+            var rawData = new TextEncoder().encode(event.data);
+            var message = Common.decode(rawData);
+            var decodedMessage = Common.toObject(message, { defaults: true });
+
+
+
+            if (decodedMessage.type=="machine.Test" ) {
+
+                protobuf.load("schema/machine/machine.proto", function(err, root) {
+                    let Machine = root.lookupType("machine.Test");
+                    
+                    let output=Machine.decode(decodedMessage.data)
+                    console.log(output)
+                    $('#myH3').html(output.currentTime);
+
+                });
+            }         
+            console.log('Decoded message:', decodedMessage);
+           // console.log("String Data:", stringData);
+        });
+    });
+
+    // Connection closed
+    socket.addEventListener('close', function (event) {
+      console.log("WebSocket connection closed.");
+
+      // Handle the connection closed event
+    });
+
+    // Connection error
+    socket.addEventListener('error', function (event) {
+      console.error("WebSocket error:", event);
+
+      // Handle the connection error event
+    });
+  
+  
+  
+
+  });
+function generateGUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0,
+            v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+ }
+ function convertToGolangFormat(fullName) {
+    // Remove dot if it's at the beginning
+    fullName = fullName.startsWith('.') ? fullName.substring(1) : fullName;
+
+    // Split the fullName into parts
+    const parts = fullName.split('.');
+
+    // Capitalize the last part (message name)
+    const messageName = parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1);
+
+    // Join the parts back together
+    const golangFormat = parts.slice(0, -1).join('.') + '.' + messageName;
+
+    return golangFormat;
+  }
+</script>
+
+</body>
+</html>
