@@ -1,0 +1,14 @@
+syntax = "proto3";
+package machine;
+option go_package = "schema/machine";
+message Login {
+  string guid=1;
+}
+
+message Login_Ack {
+  int32 result=1;
+}
+
+message Test {
+  string current_time=1;
+}

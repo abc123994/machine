@@ -1,26 +1,20 @@
 package core
 
 import (
-	"encoding/json"
 	"log"
+	pb_common "machine_svc/schema/common"
+	pb_machine "machine_svc/schema/machine"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 )
 
 type Client struct {
-	tag  int64
+	tag  string
 	Conn *websocket.Conn
 }
-type Handler func(string) int32
-type Common struct {
-	Type string `json:"type"`
-	Data []byte `json:"data"`
-}
-type OUT struct {
-	Data string `json:"data"`
-}
+type Handler func([]byte) int32
 
 var upgrader = websocket.Upgrader{
 
@@ -36,17 +30,16 @@ func HandleFunc(w http.ResponseWriter, r *http.Request) {
 		log.Print("upgrade:", err)
 		return
 	}
-	tag := time.Now().UnixNano()
-	client := &Client{tag: tag, Conn: c}
+
+	client := &Client{Conn: c}
 
 	functionMap := map[string]Handler{
-		"1": client.square,
-		"2": client.double,
+		string(proto.MessageName(&pb_machine.Login{})): client.onlogin,
 	}
 
 	defer c.Close()
 	defer onClose(client)
-	onConnect(client)
+
 	for {
 		_, message, err := c.ReadMessage()
 
@@ -54,41 +47,48 @@ func HandleFunc(w http.ResponseWriter, r *http.Request) {
 			log.Println("read:", err)
 			break
 		}
-		var common Common
-		err = json.Unmarshal(message, &common)
-		if err != nil {
-			log.Println("COMMON PARSE ERROR")
-			break
+		var _c pb_common.Common
+
+		err = proto.Unmarshal(message, &_c)
+		if len(message) > 0 {
+			if err != nil {
+				log.Println("COMMON PARSE ERROR")
+				break
+			} else {
+				go functionMap[_c.Type](_c.Data)
+			}
 		}
-		go functionMap[common.Type](common.Type)
 	}
 
 }
 
-func (c *Client) square(string) int32 {
-	log.Println("square")
-	data := OUT{
-		Data: "hello square",
+func (c *Client) onlogin(data []byte) int32 {
+	var m pb_machine.Login
+	err := proto.Unmarshal(data, &m)
+	ack := pb_machine.Login_Ack{Result: 0}
+	if err != nil {
+		ack.Result = 1
+	} else {
+		c.tag = m.Guid
+		onConnect(c)
+		ack.Result = 0
 	}
-	out, _ := json.Marshal(data)
-	c.Send("square", out)
+	out, err := proto.Marshal(&ack)
+	if err != nil {
+		panic(err)
+	}
+	c.Send(string(proto.MessageName(&ack)), out)
 	return 0
 }
-func (c *Client) double(string) int32 {
-	log.Println("double")
-	data := OUT{
-		Data: "hello double",
-	}
-	out, _ := json.Marshal(data)
-	c.Send("double", out)
-	return 0
-}
+
 func (c *Client) Send(_type string, data []byte) {
-	common := Common{
+	_c := pb_common.Common{
 		Type: _type,
 		Data: data,
 	}
+	send, err := proto.Marshal(&_c)
+	if err == nil {
 
-	send, _ := json.Marshal(common)
-	c.Conn.WriteMessage(websocket.TextMessage, send)
+		c.Conn.WriteMessage(websocket.TextMessage, send)
+	}
 }
